@@ -1,0 +1,20 @@
+# Seeded demo CI definition.
+variables:
+  SERVICE_TEAM: "charging-experience"
+  ONCALL_ROTATION: "charging-experience-oncall"
+
+stages: [build, test]
+
+build:
+  stage: build
+  image: node:20
+  script:
+    - npm ci
+    - npm run build
+
+test:
+  stage: test
+  image: node:20
+  script:
+    - npm ci
+    - npm test
