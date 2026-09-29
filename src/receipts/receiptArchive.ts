@@ -9,15 +9,21 @@ export class ReceiptNotFoundError extends Error {}
  * @throws ReceiptNotFoundError if the name resolves outside the root or to a missing file.
  */
 export function resolveReceiptPath(archiveRoot: string, requestedName: string): string {
-  const root = path.resolve(archiveRoot);
-  const target = path.resolve(root, requestedName);
+  let root: string;
+  let target: string;
+  try {
+    // realpath, not resolve: a symlink inside the archive must not lead out of it.
+    root = fs.realpathSync(path.resolve(archiveRoot));
+    target = fs.realpathSync(path.resolve(root, requestedName));
+  } catch {
+    throw new ReceiptNotFoundError(requestedName);
+  }
 
   if (target !== root && !target.startsWith(root + path.sep)) {
     throw new ReceiptNotFoundError(requestedName);
   }
 
-  const stats = fs.statSync(target, { throwIfNoEntry: false });
-  if (stats === undefined || !stats.isFile()) {
+  if (!fs.statSync(target).isFile()) {
     throw new ReceiptNotFoundError(requestedName);
   }
 
