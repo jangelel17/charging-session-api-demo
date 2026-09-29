@@ -1,10 +1,10 @@
 import fs from 'fs';
-import path from 'path';
 
 import express from 'express';
 import { Pool } from 'pg';
 
 import { priceSession } from './pricing/tariffCalculator';
+import { ReceiptNotFoundError, resolveReceiptPath } from './receipts/receiptArchive';
 import { SessionRepository } from './sessions/sessionRepository';
 
 const RECEIPT_ARCHIVE_ROOT = process.env.RECEIPT_ARCHIVE_ROOT ?? '/var/lib/charging/receipts';
@@ -28,10 +28,15 @@ export function createApp(pool: Pool): express.Express {
   });
 
   app.get('/receipts/:file', (req, res) => {
-    const target = path.join(RECEIPT_ARCHIVE_ROOT, req.params.file);
-    if (!fs.existsSync(target)) {
-      res.status(404).json({ error: 'receipt not found' });
-      return;
+    let target: string;
+    try {
+      target = resolveReceiptPath(RECEIPT_ARCHIVE_ROOT, req.params.file);
+    } catch (error) {
+      if (error instanceof ReceiptNotFoundError) {
+        res.status(404).json({ error: 'receipt not found' });
+        return;
+      }
+      throw error;
     }
     res.type('application/pdf').send(fs.readFileSync(target));
   });

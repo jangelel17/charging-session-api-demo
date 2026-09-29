@@ -11,6 +11,9 @@ fs.writeFileSync(path.join(archiveRoot, 'CS-2026-0001.pdf'), 'receipt-body');
 fs.mkdirSync(path.join(archiveRoot, 'archive-2025'));
 fs.writeFileSync(path.join(archiveRoot, 'archive-2025', 'CS-2025-0917.pdf'), 'older-receipt-body');
 
+const outsideArchive = path.join(os.tmpdir(), `receipts-outside-${process.pid}.pdf`);
+fs.writeFileSync(outsideArchive, 'not-a-receipt');
+
 // The archive root is read at module load, so it has to be set before the server is required.
 process.env.RECEIPT_ARCHIVE_ROOT = archiveRoot;
 
@@ -63,4 +66,22 @@ test('returns 404 for a receipt that is not in the archive', async () => {
   const response = await get('/receipts/CS-2026-9999.pdf');
   assert.equal(response.status, 404);
   assert.deepEqual(JSON.parse(response.body), { error: 'receipt not found' });
+});
+
+test('does not serve a file outside the archive root', async () => {
+  const escape = path.relative(archiveRoot, outsideArchive).split(path.sep).join('/');
+  const response = await get(`/receipts/${encodeURIComponent(escape)}`);
+  assert.equal(response.status, 404);
+  assert.notEqual(response.body, 'not-a-receipt');
+});
+
+test('does not serve an absolute path', async () => {
+  const response = await get(`/receipts/${encodeURIComponent(outsideArchive)}`);
+  assert.equal(response.status, 404);
+  assert.notEqual(response.body, 'not-a-receipt');
+});
+
+test('does not serve a directory', async () => {
+  const response = await get('/receipts/archive-2025');
+  assert.equal(response.status, 404);
 });
